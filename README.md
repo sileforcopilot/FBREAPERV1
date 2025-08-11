@@ -339,3 +339,177 @@ pytest -q
 
 ## 17) License
 MIT License — see `LICENSE`.
+
+---
+
+## 18) Architecture Components (Detailed)
+
+| Component | Technology | Purpose | Default Ports/Endpoints |
+| --- | --- | --- | --- |
+| Frontend UI | Streamlit | User interface for issuing commands and visualizing results | 8501 (`http://localhost:8501`) |
+| Backend API | FastAPI + Uvicorn | REST API, Kafka producer/consumer, Neo4j integration | 8000 (`http://localhost:8000`, docs at `/docs`) |
+| Scraper Service | Playwright + NLP | Automates Facebook browsing, enriches content, publishes to Kafka | N/A (runs as a process) |
+| Kafka Broker | Apache Kafka | Asynchronous messaging between backend and scraper | 9092 (localhost) |
+| Zookeeper | Apache Zookeeper | Kafka coordination service | 2181 (localhost) |
+| Neo4j | Neo4j | Graph storage and analytics | 7687 (Bolt), 7474 (Browser) |
+
+Responsibilities and interactions:
+- Frontend calls Backend REST endpoints; never communicates directly with Kafka or Neo4j.
+- Backend publishes control messages to Kafka and consumes enriched messages; reads/writes Neo4j.
+- Scraper consumes control messages, scrapes/enriches, and publishes results to Kafka.
+- Neo4j holds entities/relationships for graph queries driven by Backend.
+
+---
+
+## 19) Ports & URLs
+
+| Service | URL/Host | Notes |
+| --- | --- | --- |
+| Frontend | `http://localhost:8501` | Streamlit app |
+| Backend API | `http://localhost:8000` | OpenAPI docs at `/docs` |
+| Neo4j Browser | `http://localhost:7474` | Default login: `neo4j` / password configured in `.env` |
+| Neo4j Bolt | `bolt://localhost:7687` | Used by Backend |
+| Kafka Broker | `localhost:9092` | Used by Backend and Scraper |
+
+---
+
+## 20) Kafka Topics & Message Schemas
+
+Topics:
+- `scraper-control` (Backend -> Scraper)
+- `fbreaper-topic` (Scraper -> Backend)
+
+Example control message (to `scraper-control`):
+```json
+{
+  "task_id": "9a1e4f24-1c2d-4c8b-9b05-1f8f3a7e12ab",
+  "search_type": "keyword",
+  "query": "genai",
+  "max_posts": 50,
+  "enable_likes": true,
+  "timestamp": "2025-08-11T10:00:00Z"
+}
+```
+
+Example enriched data message (to `fbreaper-topic`):
+```json
+{
+  "post_id": "pfbid02...",
+  "content": "Sample post text about GenAI...",
+  "author": "John Doe",
+  "timestamp": "2025-08-11T10:03:21Z",
+  "likes": 12,
+  "comments": 3,
+  "shares": 1,
+  "sentiment": 0.62,
+  "language": "en",
+  "hashtags": ["genai", "ai"],
+  "entities": ["OpenAI", "GPT"]
+}
+```
+
+Notes:
+- Ensure Kafka’s auto topic creation is enabled or pre-create topics.
+- Consider partitioning and consumer groups for scale.
+
+---
+
+## 21) API Quickstart (Examples)
+
+Start a scraping task:
+```bash
+curl -X POST http://localhost:8000/api/scraper/start \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "search_type": "keyword",
+    "query": "genai",
+    "max_posts": 25,
+    "enable_likes": true
+  }'
+```
+
+Check scraper status:
+```bash
+curl http://localhost:8000/api/scraper/status
+```
+
+Health check:
+```bash
+curl http://localhost:8000/health
+```
+
+Consult `http://localhost:8000/docs` for the full API.
+
+---
+
+## 22) Startup Order & Dependencies
+
+Recommended order:
+1. Start Kafka (and Zookeeper).
+2. Start Neo4j.
+3. Start Backend (`python backend/main.py`).
+4. Start Scraper (`python scraper/main.py`).
+5. Start Frontend (`streamlit run frontend/app.py`).
+
+Dependency notes:
+- Backend depends on Kafka and Neo4j availability.
+- Scraper depends on Kafka and valid Facebook credentials.
+- Frontend depends on Backend.
+
+---
+
+## 23) Sample Cypher Queries (Neo4j)
+
+View some nodes:
+```cypher
+MATCH (n) RETURN n LIMIT 50;
+```
+
+Count posts by language:
+```cypher
+MATCH (p:Post)
+RETURN p.language AS lang, count(*) AS cnt
+ORDER BY cnt DESC;
+```
+
+Top hashtags:
+```cypher
+MATCH (p:Post)-[:TAGGED_WITH]->(h:Hashtag)
+RETURN h.tag AS hashtag, count(*) AS cnt
+ORDER BY cnt DESC LIMIT 10;
+```
+
+Graph around a user:
+```cypher
+MATCH (u:User {id: $userId})-[:AUTHORED|COMMENTED|REACTED]->(p:Post)
+OPTIONAL MATCH (p)-[:MENTIONS]->(e:Entity)
+OPTIONAL MATCH (p)-[:TAGGED_WITH]->(h:Hashtag)
+RETURN u, p, e, h;
+```
+
+---
+
+## 24) Detailed Sequence Diagram (ASCII)
+```
+User              Frontend(UI)          Backend(API)               Kafka                 Scraper               Neo4j
+ |                      |                      |                      |                      |                    |
+ | Search/Start ----->  |                      |                      |                      |                    |
+ |                      |  POST /api/scraper/start ------------------> |                      |                    |
+ |                      |                      |  produce(scraper-control) -----------------> |                    |
+ |                      |                      |                      |   consume control -->|                    |
+ |                      |                      |                      |                      | Playwright login    |
+ |                      |                      |                      |                      | Scrape + NLP        |
+ |                      |                      |                      |  produce(fbreaper-topic) <------------------|
+ |                      |                      |  consume enriched <------------------------- |                    |
+ |                      |                      |  write nodes/edges to Neo4j ------------------------------------->|
+ |                      |  GET data/status --->|                      |                      |                    |
+ |  Results/Graphs <----|                      |                      |                      |                    |
+```
+
+---
+
+## 25) Operational Tips
+- Use consumer groups if deploying multiple backend instances to balance enriched data consumption.
+- Tune scraper delays and scroll counts to be respectful and reduce bans/blocks.
+- Secure the backend (auth, CORS) for non-local deployments.
+- Backup Neo4j data directories if running long-lived studies.
