@@ -26,10 +26,20 @@ You can override endpoints via environment variables in a `.env` file:
 - FACEBOOK_EMAIL / FACEBOOK_PASSWORD
 
 ## Setup
+Install dependencies and required runtime assets:
 ```bash
 pip install -r requirements.txt
-./setup.sh
-# This installs Python deps, Playwright browser, spaCy model, and NLTK data
+playwright install chromium
+python -m spacy download en_core_web_sm
+# Optional (usually auto-downloaded by the app if missing):
+python - << 'PY'
+import nltk
+for pkg in [
+  'punkt','stopwords','averaged_perceptron_tagger','maxent_ne_chunker','words'
+]:
+    nltk.download(pkg)
+print('Downloaded NLTK data')
+PY
 ```
 
 Create and edit your `.env`:
@@ -40,26 +50,18 @@ cp .env.example .env
 ```
 
 ## Running Services (without Docker)
-- Ensure Kafka and Neo4j are running locally.
-- Option A: One command to start everything (background):
+Ensure Kafka and Neo4j are running locally or provide remote endpoints via `.env`.
+
+Run each service in separate terminals:
 ```bash
-./start_all.sh
-```
-- Option B: Start interactively in a terminal multiplexer not required:
-```bash
-# Backend API
+# Terminal 1: Backend API
 python backend/main.py
 
-# Scraper Service
+# Terminal 2: Scraper Service
 python scraper/main.py
 
-# Frontend UI
+# Terminal 3: Frontend UI
 streamlit run frontend/app.py --server.port 8501 --server.address 0.0.0.0
-```
-
-Stop background services:
-```bash
-./stop.sh
 ```
 
 ## URLs
@@ -75,8 +77,8 @@ Stop background services:
 5. Frontend queries Backend to visualize live data and network graphs.
 
 ## Notes
-- This project no longer uses Docker or Docker Compose. Ensure Kafka and Neo4j are installed and running locally, or configure remote services via `.env`.
-- For Playwright to work headlessly in some Linux environments, additional system libraries may be required; `playwright install chromium` is already handled in `setup.sh`.
+- This project no longer uses Docker, Docker Compose, or shell helper scripts. All setup and run steps are listed above.
+- Some Linux environments may require additional system libraries for Playwright.
 
 ## License
 MIT License. See `LICENSE`.
