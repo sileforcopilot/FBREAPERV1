@@ -1,0 +1,70 @@
+# Core Framework Dependencies
+fastapi
+uvicorn[standard]
+streamlit
+pydantic
+aiokafka
+
+# Web Scraping & Browser Automation
+playwright
+selenium
+beautifulsoup4
+requests
+
+# Database & Messaging
+neo4j
+kafka-python
+aiokafka
+
+# NLP & Text Processing
+transformers
+torch
+spacy
+nltk
+textblob
+langdetect
+polyglot
+pycld2
+
+# Data Processing & Analysis
+pandas
+numpy
+networkx
+matplotlib
+plotly
+seaborn
+
+# Visualization & UI
+streamlit-plotly-events
+streamlit-agraph
+streamlit-option-menu
+streamlit-authenticator
+
+# Utilities & Configuration
+python-dotenv
+python-multipart
+httpx
+websockets
+asyncio-mqtt
+
+# Logging & Monitoring
+loguru
+prometheus-client
+
+# Security & Validation
+cryptography
+passlib[bcrypt]
+python-jose[cryptography]
+
+# Development & Testing
+pytest
+pytest-asyncio
+black
+flake8
+mypy
+
+# Additional Dependencies
+Pillow
+opencv-python
+scikit-learn
+scipy
