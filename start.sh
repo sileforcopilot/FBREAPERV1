@@ -6,12 +6,6 @@
 echo "🔍 Starting FBREAPERV1 - Facebook OSINT Dashboard"
 echo "=================================================="
 
-# Check if Docker is running
-if ! docker info > /dev/null 2>&1; then
-    echo "❌ Docker is not running. Please start Docker first."
-    exit 1
-fi
-
 # Check if .env file exists
 if [ ! -f .env ]; then
     echo "⚠️  .env file not found. Creating from example..."
@@ -21,39 +15,18 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
-# Start infrastructure services
-echo "🚀 Starting infrastructure services (Neo4j, Kafka, Zookeeper)..."
-docker-compose up -d neo4j kafka zookeeper kafka-ui
-
-
-# Wait for all required Docker services and Kafka port
-echo "⏳ Waiting for infrastructure services (neo4j, kafka, zookeeper, kafka-ui) to be ready..."
-MAX_WAIT=90
-WAITED=0
-ALL_UP=0
-while [ $WAITED -lt $MAX_WAIT ]; do
-    NEO4J=$(docker-compose ps | grep -c 'neo4j.*Up')
-    KAFKA=$(docker-compose ps | grep -c 'kafka.*Up')
-    ZOOKEEPER=$(docker-compose ps | grep -c 'zookeeper.*Up')
-    KAFKA_UI=$(docker-compose ps | grep -c 'kafka-ui.*Up')
-    if [ $NEO4J -ge 1 ] && [ $KAFKA -ge 1 ] && [ $ZOOKEEPER -ge 1 ] && [ $KAFKA_UI -ge 1 ]; then
-        # Check if Kafka port is open
-        if nc -z localhost 9092; then
-            ALL_UP=1
-            break
-        fi
-    fi
-    sleep 2
-    WAITED=$((WAITED+2))
-    echo "  ...waiting ($WAITED/$MAX_WAIT sec)"
-done
-
-if [ $ALL_UP -eq 1 ]; then
-    echo "✅ All infrastructure services are running and Kafka is reachable on port 9092."
+# Check local infrastructure availability (Kafka, Neo4j)
+echo "🔎 Checking local infrastructure (Kafka at localhost:9092, Neo4j at localhost:7687)..."
+if nc -z localhost 9092; then
+    echo "✅ Kafka reachable on localhost:9092"
 else
-    echo "❌ One or more infrastructure services did not start properly or Kafka is not reachable on port 9092."
-    echo "   Please check 'docker-compose ps' and 'docker-compose logs' for details."
-    exit 1
+    echo "⚠️  Kafka not reachable on localhost:9092. Start Kafka locally or set KAFKA_BOOTSTRAP_SERVERS in your .env."
+fi
+
+if nc -z localhost 7687; then
+    echo "✅ Neo4j reachable on localhost:7687"
+else
+    echo "⚠️  Neo4j not reachable on localhost:7687. Start Neo4j locally or set NEO4J_URI in your .env."
 fi
 
 echo ""

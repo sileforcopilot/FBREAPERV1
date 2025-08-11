@@ -1,168 +1,82 @@
-# FBREAPERV1 — Facebook OSINT Dashboard
+# FBREAPERV1 — Facebook OSINT Dashboard (Non‑Docker)
 
-**Full Python Project (Live Data Only)**
+## Overview
+FBREAPERV1 is a modular Python platform for real‑time Facebook OSINT: scraping, enrichment, storage, and visualization.
 
----
+Components:
+- Frontend UI: Streamlit (port 8501)
+- Backend API: FastAPI + Uvicorn (port 8000)
+- Scraper Service: Playwright + NLP (Kafka producer/consumer)
+- Data Store: Neo4j
+- Messaging: Kafka (with Zookeeper)
 
-## Project Overview
-
-FBREAPERV1 is a sophisticated, modular OSINT platform built entirely in Python for **real-time Facebook data collection, enrichment, storage, and visualization**. Leveraging best-in-class Python frameworks and tools, FBREAPERV1 enables ethical, scalable, and extensible Facebook OSINT — powered exclusively by live data, with no test or mock data.
-
----
-
-## Architecture Components
-
-| Component                | Tech Stack                 | Port      | Description                                                        |
-| ------------------------ | -------------------------- | --------- | ------------------------------------------------------------------ |
-| **Frontend UI**          | Streamlit                  | 8501      | Interactive, dynamic dashboard for user commands & live data       |
-| **Backend API**          | FastAPI + Uvicorn          | 8000      | REST API for scraper control, data ingestion, and Neo4j querying   |
-| **Scraper Microservice** | Playwright + NLP           | 5000      | Live Facebook scraping, real-time text enrichment, Kafka messaging |
-| **Graph Database**       | Neo4j (Dockerized)         | 7687      | Storage and relationship analytics of live Facebook data           |
-| **Messaging Infra**      | Kafka + Zookeeper (Docker) | 9092/2181 | Reliable async communication between backend and scraper           |
-| **Kafka Web UI**         | Kafka UI                   | 8081      | Kafka topics and message monitoring                                |
-
----
-
-## Quick Start
-
-### Prerequisites
+## Prerequisites
 - Python 3.9+
-- Docker & Docker Compose
+- Kafka and Zookeeper running locally (default: localhost:9092)
+- Neo4j running locally (default: bolt://localhost:7687)
 - Facebook account for scraping
 
-### Installation
+You can override endpoints via environment variables in a `.env` file:
+- NEO4J_URI (default: bolt://localhost:7687)
+- NEO4J_USER (default: neo4j)
+- NEO4J_PASSWORD (default: fbreaper123)
+- KAFKA_BOOTSTRAP_SERVERS (default: localhost:9092)
+- KAFKA_TOPIC_SCRAPER_CONTROL (default: scraper-control)
+- KAFKA_TOPIC_FBREAPER_DATA (default: fbreaper-topic)
+- FACEBOOK_EMAIL / FACEBOOK_PASSWORD
 
-1. **Clone and setup:**
-```bash
-git clone <repository>
-cd fbreaperv1
-```
-
-2. **Install Python dependencies:**
+## Setup
 ```bash
 pip install -r requirements.txt
+./setup.sh
+# This installs Python deps, Playwright browser, spaCy model, and NLTK data
 ```
 
-3. **Start infrastructure services:**
-```bash
-docker-compose up -d neo4j kafka zookeeper kafka-ui
-```
-
-4. **Configure Facebook credentials:**
+Create and edit your `.env`:
 ```bash
 cp .env.example .env
-# Edit .env with your Facebook credentials
+# Set FACEBOOK_EMAIL and FACEBOOK_PASSWORD
+# Optionally set Kafka/Neo4j connection values
 ```
 
-5. **Start the services:**
+## Running Services (without Docker)
+- Ensure Kafka and Neo4j are running locally.
+- Option A: One command to start everything (background):
 ```bash
-# Terminal 1: Backend API
+./start_all.sh
+```
+- Option B: Start interactively in a terminal multiplexer not required:
+```bash
+# Backend API
 python backend/main.py
 
-# Terminal 2: Scraper Microservice  
+# Scraper Service
 python scraper/main.py
 
-# Terminal 3: Frontend UI
-streamlit run frontend/app.py
+# Frontend UI
+streamlit run frontend/app.py --server.port 8501 --server.address 0.0.0.0
 ```
 
-6. **Access the dashboard:**
+Stop background services:
+```bash
+./stop.sh
+```
+
+## URLs
 - Frontend: http://localhost:8501
-- Backend API: http://localhost:8000/docs
-- Kafka UI: http://localhost:8081
+- Backend API docs: http://localhost:8000/docs
 - Neo4j Browser: http://localhost:7474
 
----
+## Data Flow
+1. Frontend sends commands to Backend.
+2. Backend publishes control messages to Kafka (`scraper-control`).
+3. Scraper consumes control messages, scrapes Facebook, enriches text, and publishes to Kafka (`fbreaper-topic`).
+4. Backend consumes enriched data and writes it to Neo4j.
+5. Frontend queries Backend to visualize live data and network graphs.
 
-## Functional Overview
-
-### Streamlit Frontend
-- Live search interface for keywords, users, groups, and pages
-- Real-time scraper status, progress, and error displays
-- Dynamic display of Facebook posts, comments, and reactions from live data
-- Interactive network graph visualizing social relationships
-- Live sentiment, language, and hashtag analytics
-- Responsive dark mode UI with auto-refreshing views
-
-### FastAPI Backend
-- REST API endpoints to start scraping, submit keyword/user/group searches, and retrieve data
-- Retrieves live data directly from the Neo4j graph database
-- Consumes enriched data messages from the scraper microservice via Kafka
-- Inserts live data into Neo4j and provides network analysis endpoints
-- Health check and system metrics endpoints
-
-### Python Scraper Microservice
-- Uses Playwright for human-like Facebook browsing with persistent login sessions
-- Operates in two modes:
-  - Open browser and continuously scroll the live Facebook homepage feed
-  - Search specified keywords/users/groups and scrape related posts
-- Extracts posts, comments, reactions, timestamps, and metadata dynamically
-- Applies a powerful NLP pipeline including:
-  - Language detection
-  - Sentiment analysis
-  - Hashtag extraction
-  - Named Entity Recognition (NER)
-  - Automatic translation of foreign-language text
-- Includes randomized liking of posts where keyword matches are found to simulate human behavior
-- Communicates asynchronously with backend via Kafka:
-  - Consumes scrape commands
-  - Produces enriched data messages
-
-### Neo4j Graph Database
-- Stores Facebook entities (posts, users, groups, comments) as graph nodes
-- Captures relationships such as authorship, commenting, reacting, and tagging
-- Enables fast graph queries for interactive network visualization and analysis
-
-### Kafka Messaging Infrastructure
-- Enables decoupled, asynchronous inter-service communication
-- Topics:
-  - `scraper-control`: Backend commands scraper microservice
-  - `fbreaper-topic`: Scraper streams enriched data to backend
-- Supports reliable, scalable message processing and delivery
-
----
-
-## Data Flow Summary
-
-1. User interacts with the **Streamlit frontend** to issue searches or control commands
-2. Frontend calls **FastAPI backend** REST APIs
-3. Backend produces Kafka messages directing the scraper microservice
-4. Scraper performs live Facebook data extraction and enrichment
-5. Enriched live data flows back to backend through Kafka
-6. Backend ingests and persists data in the **Neo4j** graph database
-7. Frontend queries backend and visualizes live data on demand
-
----
-
-## Security & Performance
-
-- Scraper enforces Facebook's rate limiting and session management policies
-- Backend implements CORS, input validation, and detailed logging for API security
-- Kafka ensures reliable, scalable messaging between services
-- Docker containerization for isolated, portable, and scalable deployments
-- Real-time monitoring and comprehensive error handling throughout the system
-
----
-
-## Key Features
-
-- Live multi-entity Facebook OSINT scraping: users, groups, pages, keywords
-- Persistent Playwright browser sessions and human-like dynamic scraping including **random liking of posts where keywords are found** to mimic natural behavior
-- Real-time scraper status tracking with detailed error reporting
-- Rich NLP-driven text enrichment including **automatic translation**
-- Interactive, live-updating social network graph visualizations
-- Modular and fully Python microservices architecture for ease of maintenance and extensibility
-
----
-
-## API Documentation
-
-Once the backend is running, visit http://localhost:8000/docs for interactive API documentation.
-
-## Contributing
-
-This project is for educational and research purposes. Please ensure compliance with Facebook's Terms of Service and applicable laws when using this tool.
+## Notes
+- This project no longer uses Docker or Docker Compose. Ensure Kafka and Neo4j are installed and running locally, or configure remote services via `.env`.
+- For Playwright to work headlessly in some Linux environments, additional system libraries may be required; `playwright install chromium` is already handled in `setup.sh`.
 
 ## License
-
-MIT License - see LICENSE file for details.
+MIT License. See `LICENSE`.

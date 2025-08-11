@@ -43,7 +43,7 @@ app.add_middleware(
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "fbreaper123")
-KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 KAFKA_TOPIC_SCRAPER_CONTROL = os.getenv("KAFKA_TOPIC_SCRAPER_CONTROL", "scraper-control")
 KAFKA_TOPIC_FBREAPER_DATA = os.getenv("KAFKA_TOPIC_FBREAPER_DATA", "fbreaper-topic")
 

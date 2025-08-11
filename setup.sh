@@ -90,18 +90,8 @@ fi
 mkdir -p logs
 echo "✅ Logs directory created"
 
-# Check Docker
-if command -v docker &> /dev/null; then
-    echo "✅ Docker is available"
-else
-    echo "⚠️  Docker not found. Please install Docker to use the infrastructure services"
-fi
-
-if command -v docker-compose &> /dev/null; then
-    echo "✅ Docker Compose is available"
-else
-    echo "⚠️  Docker Compose not found. Please install Docker Compose"
-fi
+# Note on infrastructure
+echo "ℹ️  Docker and Docker Compose are not required. Ensure Kafka and Neo4j are installed and running locally, or set remote endpoints via environment variables."
 
 echo ""
 echo "🎉 Setup completed successfully!"
